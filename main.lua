@@ -46,6 +46,7 @@ function ForceRefresh:init()
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
+    self.skip_chapter_start = G_reader_settings:readSetting("forcerefresh_skip_chapter_start", false)
     self.blank_refresh_mode = G_reader_settings:readSetting("forcerefresh_blank_mode", "flashui")
     local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
     self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
@@ -92,6 +93,16 @@ function ForceRefresh:addToMainMenu(menu_items)
                     self.only_flash_on_page_with_images = not self.only_flash_on_page_with_images
                     self:saveBookSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
                     logger.info("ForceRefresh only on pages with images:", self.only_flash_on_page_with_images)
+                end,
+            },
+            {
+                text = _("Skip first page of new chapters"),
+                checked_func = function()
+                    return self.skip_chapter_start
+                end,
+                callback = function()
+                    self.skip_chapter_start = not self.skip_chapter_start
+                    self:saveBookSetting("forcerefresh_skip_chapter_start", self.skip_chapter_start)
                 end,
             },
             {
@@ -352,6 +363,7 @@ function ForceRefresh:loadBookSettings()
     self.only_flash_on_page_with_images = read_setting("forcerefresh_only_images", self.only_flash_on_page_with_images)
     self.blank_page_color = read_setting("forcerefresh_blank_color", self.blank_page_color)
     self.show_blank_page = read_setting("forcerefresh_show_blank_page", self.show_blank_page)
+    self.skip_chapter_start = read_setting("forcerefresh_skip_chapter_start", self.skip_chapter_start)
     self.blank_refresh_mode = read_setting("forcerefresh_blank_mode", self.blank_refresh_mode)
     self.refresh_count = math.max(1, math.min(5, math.floor(tonumber(
         read_setting("forcerefresh_count", self.refresh_count)) or 1)))
@@ -374,6 +386,14 @@ end
 -- Register plugin to a page turn event
 function ForceRefresh:onPageUpdate(page_number)
     if self.enabled then
+        if self.skip_chapter_start and self.ui.toc then
+            for _, chapter_page in ipairs(self.ui.toc:getTocTicksFlattened(true)) do
+                if chapter_page == page_number then
+                    return false
+                end
+            end
+        end
+
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
         if not self.show_blank_page then
