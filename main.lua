@@ -51,8 +51,7 @@ function ForceRefresh:init()
     self.blank_refresh_mode = G_reader_settings:readSetting("forcerefresh_blank_mode", "flashui")
     local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
     self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
-    local blank_refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_blank_count", 1)) or 1
-    self.blank_refresh_count = math.max(1, math.min(5, math.floor(blank_refresh_count)))
+    self.blank_refresh_count = 1
 
     -- Add to main menu
     self:installWindowCloseHook()
