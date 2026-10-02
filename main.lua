@@ -48,6 +48,8 @@ function ForceRefresh:init()
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
     local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
     self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
+    local blank_refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_blank_count", 1)) or 1
+    self.blank_refresh_count = math.max(1, math.min(5, math.floor(blank_refresh_count)))
 
     -- Add to main menu
     self.ui.menu:registerToMainMenu(self)
@@ -122,6 +124,61 @@ function ForceRefresh:addToMainMenu(menu_items)
                         callback = function()
                             self.blank_page_color = "black"
                             G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                        end,
+                    },
+                },
+            },
+            {
+                text = _("Blank refresh count"),
+                sub_item_table = {
+                    {
+                        text = "1",
+                        checked_func = function()
+                            return self.blank_refresh_count == 1
+                        end,
+                        callback = function()
+                            self.blank_refresh_count = 1
+                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                        end,
+                    },
+                    {
+                        text = "2",
+                        checked_func = function()
+                            return self.blank_refresh_count == 2
+                        end,
+                        callback = function()
+                            self.blank_refresh_count = 2
+                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                        end,
+                    },
+                    {
+                        text = "3",
+                        checked_func = function()
+                            return self.blank_refresh_count == 3
+                        end,
+                        callback = function()
+                            self.blank_refresh_count = 3
+                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                        end,
+                    },
+                    {
+                        text = "4",
+                        checked_func = function()
+                            return self.blank_refresh_count == 4
+                        end,
+                        callback = function()
+                            self.blank_refresh_count = 4
+                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                        end,
+                    },
+                    {
+                        text = "5",
+                        checked_func = function()
+                            return self.blank_refresh_count == 5
+                        end,
+                        callback = function()
+                            self.blank_refresh_count = 5
+                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                 },
@@ -274,7 +331,13 @@ function ForceRefresh:onPageUpdate(page_number)
         UIManager:setDirty(self.ui)
         UIManager:forceRePaint()
         if blank_page.has_images then
-            UIManager:waitForVSync()
+            for pass = 1, self.blank_refresh_count do
+                UIManager:waitForVSync()
+                if pass < self.blank_refresh_count then
+                    UIManager:setDirty(nil, "flashui")
+                    UIManager:forceRePaint()
+                end
+            end
             UIManager:close(blank_page, self.refresh_mode)
             UIManager:forceRePaint()
             self:refreshPageAdditionalTimes()
