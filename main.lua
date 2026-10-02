@@ -45,6 +45,7 @@ function ForceRefresh:init()
     self.refresh_on_suspend = G_reader_settings:readSetting("forcerefresh_on_suspend", false)
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
+    self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
 
     -- Add to main menu
     self.ui.menu:registerToMainMenu(self)
@@ -86,6 +87,16 @@ function ForceRefresh:addToMainMenu(menu_items)
                     self.only_flash_on_page_with_images = not self.only_flash_on_page_with_images
                     G_reader_settings:saveSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
                     logger.info("ForceRefresh only on pages with images:", self.only_flash_on_page_with_images)
+                end,
+            },
+            {
+                text = _("Show blank page"),
+                checked_func = function()
+                    return self.show_blank_page
+                end,
+                callback = function()
+                    self.show_blank_page = not self.show_blank_page
+                    G_reader_settings:saveSetting("forcerefresh_show_blank_page", self.show_blank_page)
                 end,
             },
             {
@@ -170,6 +181,19 @@ end
 function ForceRefresh:onPageUpdate(page_number)
     if self.enabled then
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
+
+        if not self.show_blank_page then
+            UIManager:setDirty(self.ui, function()
+                if not self.only_flash_on_page_with_images then
+                    return self.refresh_mode
+                end
+                local image_count = self.ui.document:getDrawnImagesStatistics()
+                if image_count > 0 then
+                    return self.refresh_mode
+                end
+            end)
+            return false
+        end
 
         local blank_page = BlankRefreshWidget:new {
             background = self.blank_page_color == "black" and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_WHITE,
