@@ -148,7 +148,7 @@ function ForceRefresh:onPageUpdate(page_number)
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
         local blank_page = BlankRefreshWidget:new {
-            background = self.ui.view.page_bgcolor or Blitbuffer.COLOR_WHITE,
+            background = Blitbuffer.COLOR_WHITE,
             document = self.ui.document,
             only_flash_on_page_with_images = self.only_flash_on_page_with_images,
         }
