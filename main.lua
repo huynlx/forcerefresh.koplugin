@@ -393,24 +393,61 @@ function ForceRefresh:installWindowCloseHook()
         state = {
             listeners = {},
             original_close = UIManager.close,
+            original_show = UIManager.show,
+            open_pages = setmetatable({}, { __mode = "k" }),
         }
+        state.show_wrapper = function(manager, widget, ...)
+            if widget and widget.name ~= "forcerefresh_blank" then
+                local pages = {}
+                for plugin in pairs(state.listeners) do
+                    if widget ~= plugin.ui and manager:isWidgetShown(plugin.ui) then
+                        local page_number = plugin.ui:getCurrentPage()
+                        if page_number ~= nil then
+                            pages[plugin] = {
+                                page = page_number,
+                                update_serial = plugin.page_update_serial or 0,
+                            }
+                        end
+                    end
+                end
+                if next(pages) then
+                    state.open_pages[widget] = pages
+                end
+            end
+            return state.original_show(manager, widget, ...)
+        end
         state.wrapper = function(manager, widget, ...)
             local refresh_listeners = {}
             if widget and manager:isWidgetShown(widget) and widget.name ~= "forcerefresh_blank" then
+                local pages = state.open_pages[widget]
                 for plugin in pairs(state.listeners) do
+                    local opened_at = pages and pages[plugin]
                     if plugin.refresh_on_window_close
                         and widget ~= plugin.ui
-                        and manager:isWidgetShown(plugin.ui) then
-                        table.insert(refresh_listeners, plugin)
+                        and manager:isWidgetShown(plugin.ui)
+                        and (not opened_at
+                            or (opened_at.page == plugin.ui:getCurrentPage()
+                                and opened_at.update_serial == (plugin.page_update_serial or 0))) then
+                        table.insert(refresh_listeners, {
+                            plugin = plugin,
+                            opened_at = opened_at,
+                        })
                     end
                 end
             end
             local result = state.original_close(manager, widget, ...)
-            for _, plugin in ipairs(refresh_listeners) do
+            if widget then
+                state.open_pages[widget] = nil
+            end
+            for _, listener in ipairs(refresh_listeners) do
                 manager:nextTick(function()
+                    local plugin = listener.plugin
                     if state.listeners[plugin]
                         and plugin.refresh_on_window_close
-                        and manager:isWidgetShown(plugin.ui) then
+                        and manager:isWidgetShown(plugin.ui)
+                        and (not listener.opened_at
+                            or (listener.opened_at.page == plugin.ui:getCurrentPage()
+                                and listener.opened_at.update_serial == (plugin.page_update_serial or 0))) then
                         manager:setDirty(plugin.ui, "flashui")
                     end
                 end)
@@ -418,6 +455,7 @@ function ForceRefresh:installWindowCloseHook()
             return result
         end
         UIManager._forcerefresh_close_hook = state
+        UIManager.show = state.show_wrapper
         UIManager.close = state.wrapper
     end
     state.listeners[self] = true
@@ -431,6 +469,9 @@ function ForceRefresh:uninstallWindowCloseHook()
     end
     state.listeners[self] = nil
     if not next(state.listeners) then
+        if UIManager.show == state.show_wrapper then
+            UIManager.show = state.original_show
+        end
         if UIManager.close == state.wrapper then
             UIManager.close = state.original_close
         end
@@ -452,6 +493,7 @@ function ForceRefresh:onPageUpdate(page_number)
     if not self.reader_ready or page_number == self.last_page_number then
         return false
     end
+    self.page_update_serial = (self.page_update_serial or 0) + 1
     self.last_page_number = page_number
 
     if self.enabled then
@@ -516,6 +558,7 @@ end
 function ForceRefresh:onReaderReady()
     self:loadBookSettings()
     self.last_page_number = self.ui:getCurrentPage()
+    self.page_update_serial = 0
     self.reader_ready = true
 end
 
@@ -524,6 +567,7 @@ function ForceRefresh:onCloseDocument()
     self:uninstallWindowCloseHook()
     self.reader_ready = false
     self.last_page_number = nil
+    self.page_update_serial = nil
 end
 
 -- Called when device is about to suspend/sleep
