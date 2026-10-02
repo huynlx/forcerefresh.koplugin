@@ -1,7 +1,34 @@
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
+local Blitbuffer = require("ffi/blitbuffer")
+local Device = require("device")
+local Widget = require("ui/widget/widget")
 local logger = require("logger")
 local _ = require("gettext")
+local Screen = Device.screen
+
+local BlankRefreshWidget = Widget:extend {
+    name = "forcerefresh_blank",
+}
+
+function BlankRefreshWidget:getSize()
+    return Screen:getSize()
+end
+
+function BlankRefreshWidget:paintTo(bb, x, y)
+    self.has_images = true
+    if self.only_flash_on_page_with_images then
+        local image_count = self.document:getDrawnImagesStatistics()
+        self.has_images = image_count > 0
+    end
+    if self.has_images then
+        local screen_size = Screen:getSize()
+        bb:paintRect(x, y, screen_size.w, screen_size.h, Blitbuffer.COLOR_BLACK)
+        UIManager:setDirty(nil, "flashui")
+    else
+        self.invisible = true
+    end
+end
 
 -- Plugin main class
 local ForceRefresh = WidgetContainer:extend {
@@ -118,18 +145,20 @@ function ForceRefresh:onPageUpdate(page_number)
     if self.enabled then
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
-        -- force refresh the page again after some time
-        UIManager:scheduleIn(0.1, function()
-            local has_images = true
-            if self.only_flash_on_page_with_images then
-                local image_count = self.ui.document:getDrawnImagesStatistics()
-                has_images = image_count > 0
-            end
-            if has_images then
-                UIManager:setDirty(self.ui, self.refresh_mode)
-            end
+        local blank_page = BlankRefreshWidget:new {
+            document = self.ui.document,
+            only_flash_on_page_with_images = self.only_flash_on_page_with_images,
+        }
+        UIManager:show(blank_page)
+        UIManager:setDirty(self.ui)
+        UIManager:forceRePaint()
+        if blank_page.has_images then
+            UIManager:waitForVSync()
+            UIManager:close(blank_page, self.refresh_mode)
+            UIManager:forceRePaint()
+        else
+            UIManager:close(blank_page)
         end
-        )
 
         -- allow other handlers to handle this event
         return false
