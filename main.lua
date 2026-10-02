@@ -43,6 +43,7 @@ function ForceRefresh:init()
     self.enabled = G_reader_settings:readSetting("forcerefresh_enabled", false)
     self.refresh_mode = G_reader_settings:readSetting("forcerefresh_mode", "flashui")
     self.refresh_on_suspend = G_reader_settings:readSetting("forcerefresh_on_suspend", false)
+    self.refresh_on_window_close = G_reader_settings:readSetting("forcerefresh_on_window_close", false)
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
@@ -54,6 +55,7 @@ function ForceRefresh:init()
     self.blank_refresh_count = math.max(1, math.min(5, math.floor(blank_refresh_count)))
 
     -- Add to main menu
+    self:installWindowCloseHook()
     self.ui.menu:registerToMainMenu(self)
 end
 
@@ -82,6 +84,16 @@ function ForceRefresh:addToMainMenu(menu_items)
                     self.refresh_on_suspend = not self.refresh_on_suspend
                     G_reader_settings:saveSetting("forcerefresh_on_suspend", self.refresh_on_suspend)
                     logger.info("ForceRefresh on suspend:", self.refresh_on_suspend)
+                end,
+            },
+            {
+                text = _("Refresh on window close"),
+                checked_func = function()
+                    return self.refresh_on_window_close
+                end,
+                callback = function()
+                    self.refresh_on_window_close = not self.refresh_on_window_close
+                    self:saveBookSetting("forcerefresh_on_window_close", self.refresh_on_window_close)
                 end,
             },
             {
@@ -360,6 +372,7 @@ function ForceRefresh:loadBookSettings()
 
     self.enabled = read_setting("forcerefresh_enabled", self.enabled)
     self.refresh_mode = read_setting("forcerefresh_mode", self.refresh_mode)
+    self.refresh_on_window_close = read_setting("forcerefresh_on_window_close", self.refresh_on_window_close)
     self.only_flash_on_page_with_images = read_setting("forcerefresh_only_images", self.only_flash_on_page_with_images)
     self.blank_page_color = read_setting("forcerefresh_blank_color", self.blank_page_color)
     self.show_blank_page = read_setting("forcerefresh_show_blank_page", self.show_blank_page)
@@ -373,6 +386,58 @@ end
 
 function ForceRefresh:saveBookSetting(key, value)
     self.ui.doc_settings:saveSetting(key, value)
+end
+
+function ForceRefresh:installWindowCloseHook()
+    local state = UIManager._forcerefresh_close_hook
+    if not state then
+        state = {
+            listeners = {},
+            original_close = UIManager.close,
+        }
+        state.wrapper = function(manager, widget, ...)
+            local refresh_listeners = {}
+            if widget and manager:isWidgetShown(widget) and widget.name ~= "forcerefresh_blank" then
+                for plugin in pairs(state.listeners) do
+                    if plugin.refresh_on_window_close
+                            and widget ~= plugin.ui
+                            and manager:isWidgetShown(plugin.ui) then
+                        table.insert(refresh_listeners, plugin)
+                    end
+                end
+            end
+            local result = state.original_close(manager, widget, ...)
+            for _, plugin in ipairs(refresh_listeners) do
+                manager:nextTick(function()
+                    if state.listeners[plugin]
+                            and plugin.refresh_on_window_close
+                            and manager:isWidgetShown(plugin.ui) then
+                        manager:setDirty(plugin.ui, plugin.refresh_mode)
+                    end
+                end)
+            end
+            return result
+        end
+        UIManager._forcerefresh_close_hook = state
+        UIManager.close = state.wrapper
+    end
+    state.listeners[self] = true
+    self.close_hook_state = state
+end
+
+function ForceRefresh:uninstallWindowCloseHook()
+    local state = self.close_hook_state
+    if not state then
+        return
+    end
+    state.listeners[self] = nil
+    if not next(state.listeners) then
+        if UIManager.close == state.wrapper then
+            UIManager.close = state.original_close
+        end
+        UIManager._forcerefresh_close_hook = nil
+    end
+    self.close_hook_state = nil
 end
 
 function ForceRefresh:refreshPageAdditionalTimes()
@@ -457,6 +522,7 @@ end
 
 -- Called when a document is closed
 function ForceRefresh:onCloseDocument()
+    self:uninstallWindowCloseHook()
     self.reader_ready = false
     self.last_page_number = nil
 end
