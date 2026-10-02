@@ -452,17 +452,22 @@ function ForceRefresh:installWindowCloseHook()
                 state.open_pages[widget] = nil
             end
             for _, listener in ipairs(refresh_listeners) do
-                manager:nextTick(function()
-                    local plugin = listener.plugin
-                    if state.listeners[plugin]
-                        and plugin.refresh_on_window_close
-                        and manager:isWidgetShown(plugin.ui)
-                        and (not listener.opened_at
-                            or (listener.opened_at.page == plugin.ui:getCurrentPage()
-                                and listener.opened_at.update_serial == (plugin.page_update_serial or 0))) then
-                        manager:setDirty(plugin.ui, "flashui")
-                    end
-                end)
+                local plugin = listener.plugin
+                if not plugin.window_close_refresh_scheduled then
+                    plugin.window_close_refresh_scheduled = true
+                    manager:nextTick(function()
+                        plugin.window_close_refresh_scheduled = false
+                        if state.listeners[plugin]
+                            and plugin.refresh_on_window_close
+                            and manager:isWidgetShown(plugin.ui)
+                            and manager:getTopmostVisibleWidget() == plugin.ui
+                            and (not listener.opened_at
+                                or (listener.opened_at.page == plugin.ui:getCurrentPage()
+                                    and listener.opened_at.update_serial == (plugin.page_update_serial or 0))) then
+                            manager:setDirty(plugin.ui, "flashui")
+                        end
+                    end)
+                end
             end
             return result
         end
