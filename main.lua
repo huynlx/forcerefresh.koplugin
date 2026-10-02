@@ -24,7 +24,6 @@ function BlankRefreshWidget:paintTo(bb, x, y)
     if self.has_images then
         local screen_size = Screen:getSize()
         bb:paintRect(x, y, screen_size.w, screen_size.h, self.background)
-        UIManager:setDirty(nil, "flashui")
     end
 end
 
