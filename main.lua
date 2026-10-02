@@ -24,7 +24,7 @@ function BlankRefreshWidget:paintTo(bb, x, y)
     if self.has_images then
         local screen_size = Screen:getSize()
         bb:paintRect(x, y, screen_size.w, screen_size.h, self.background)
-        UIManager:setDirty(nil, "full")
+        UIManager:setDirty(nil, "flashui")
     else
         self.invisible = true
     end
@@ -182,7 +182,6 @@ function ForceRefresh:onPageUpdate(page_number)
         if blank_page.has_images then
             UIManager:waitForVSync()
             UIManager:close(blank_page, self.refresh_mode)
-            UIManager:forceRePaint()
         else
             UIManager:close(blank_page)
         end
