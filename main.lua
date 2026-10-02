@@ -46,6 +46,8 @@ function ForceRefresh:init()
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
+    local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
+    self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
 
     -- Add to main menu
     self.ui.menu:registerToMainMenu(self)
@@ -125,6 +127,61 @@ function ForceRefresh:addToMainMenu(menu_items)
                 },
             },
             {
+                text = _("Refresh count"),
+                sub_item_table = {
+                    {
+                        text = "1",
+                        checked_func = function()
+                            return self.refresh_count == 1
+                        end,
+                        callback = function()
+                            self.refresh_count = 1
+                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                        end,
+                    },
+                    {
+                        text = "2",
+                        checked_func = function()
+                            return self.refresh_count == 2
+                        end,
+                        callback = function()
+                            self.refresh_count = 2
+                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                        end,
+                    },
+                    {
+                        text = "3",
+                        checked_func = function()
+                            return self.refresh_count == 3
+                        end,
+                        callback = function()
+                            self.refresh_count = 3
+                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                        end,
+                    },
+                    {
+                        text = "4",
+                        checked_func = function()
+                            return self.refresh_count == 4
+                        end,
+                        callback = function()
+                            self.refresh_count = 4
+                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                        end,
+                    },
+                    {
+                        text = "5",
+                        checked_func = function()
+                            return self.refresh_count == 5
+                        end,
+                        callback = function()
+                            self.refresh_count = 5
+                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                        end,
+                    },
+                },
+            },
+            {
                 text = _("Refresh mode"),
                 sub_item_table = {
                     {
@@ -177,6 +234,14 @@ function ForceRefresh:addToMainMenu(menu_items)
     }
 end
 
+function ForceRefresh:refreshPageAdditionalTimes()
+    for _ = 2, self.refresh_count do
+        UIManager:waitForVSync()
+        UIManager:setDirty(self.ui, self.refresh_mode)
+        UIManager:forceRePaint()
+    end
+end
+
 -- Register plugin to a page turn event
 function ForceRefresh:onPageUpdate(page_number)
     if self.enabled then
@@ -184,14 +249,19 @@ function ForceRefresh:onPageUpdate(page_number)
 
         if not self.show_blank_page then
             UIManager:setDirty(self.ui, function()
-                if not self.only_flash_on_page_with_images then
-                    return self.refresh_mode
+                self.page_has_images = not self.only_flash_on_page_with_images
+                if self.only_flash_on_page_with_images then
+                    local image_count = self.ui.document:getDrawnImagesStatistics()
+                    self.page_has_images = image_count > 0
                 end
-                local image_count = self.ui.document:getDrawnImagesStatistics()
-                if image_count > 0 then
+                if self.page_has_images then
                     return self.refresh_mode
                 end
             end)
+            UIManager:forceRePaint()
+            if self.page_has_images then
+                self:refreshPageAdditionalTimes()
+            end
             return false
         end
 
@@ -206,6 +276,8 @@ function ForceRefresh:onPageUpdate(page_number)
         if blank_page.has_images then
             UIManager:waitForVSync()
             UIManager:close(blank_page, self.refresh_mode)
+            UIManager:forceRePaint()
+            self:refreshPageAdditionalTimes()
         else
             UIManager:close(blank_page)
         end
