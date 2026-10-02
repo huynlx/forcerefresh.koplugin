@@ -24,7 +24,7 @@ function BlankRefreshWidget:paintTo(bb, x, y)
     if self.has_images then
         local screen_size = Screen:getSize()
         bb:paintRect(x, y, screen_size.w, screen_size.h, self.background)
-        UIManager:setDirty(nil, "flashui")
+        UIManager:setDirty(nil, self.blank_refresh_mode)
     else
         self.invisible = true
     end
@@ -46,6 +46,7 @@ function ForceRefresh:init()
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
+    self.blank_refresh_mode = G_reader_settings:readSetting("forcerefresh_blank_mode", "flashui")
     local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
     self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
     local blank_refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_blank_count", 1)) or 1
@@ -124,6 +125,51 @@ function ForceRefresh:addToMainMenu(menu_items)
                         callback = function()
                             self.blank_page_color = "black"
                             G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                        end,
+                    },
+                },
+            },
+            {
+                text = _("Blank refresh mode"),
+                sub_item_table = {
+                    {
+                        text = _("Full refresh (slowest, cleanest)"),
+                        checked_func = function()
+                            return self.blank_refresh_mode == "full"
+                        end,
+                        callback = function()
+                            self.blank_refresh_mode = "full"
+                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                        end,
+                    },
+                    {
+                        text = _("Partial refresh (faster, some ghosting)"),
+                        checked_func = function()
+                            return self.blank_refresh_mode == "partial"
+                        end,
+                        callback = function()
+                            self.blank_refresh_mode = "partial"
+                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                        end,
+                    },
+                    {
+                        text = _("Flash UI (balanced)"),
+                        checked_func = function()
+                            return self.blank_refresh_mode == "flashui"
+                        end,
+                        callback = function()
+                            self.blank_refresh_mode = "flashui"
+                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                        end,
+                    },
+                    {
+                        text = _("Flash partial (fast with quick flash)"),
+                        checked_func = function()
+                            return self.blank_refresh_mode == "flashpartial"
+                        end,
+                        callback = function()
+                            self.blank_refresh_mode = "flashpartial"
+                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
                         end,
                     },
                 },
@@ -324,6 +370,7 @@ function ForceRefresh:onPageUpdate(page_number)
 
         local blank_page = BlankRefreshWidget:new {
             background = self.blank_page_color == "black" and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_WHITE,
+            blank_refresh_mode = self.blank_refresh_mode,
             document = self.ui.document,
             only_flash_on_page_with_images = self.only_flash_on_page_with_images,
         }
@@ -334,7 +381,7 @@ function ForceRefresh:onPageUpdate(page_number)
             for pass = 1, self.blank_refresh_count do
                 UIManager:waitForVSync()
                 if pass < self.blank_refresh_count then
-                    UIManager:setDirty(nil, "flashui")
+                    UIManager:setDirty(nil, self.blank_refresh_mode)
                     UIManager:forceRePaint()
                 end
             end
