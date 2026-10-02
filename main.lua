@@ -44,6 +44,7 @@ function ForceRefresh:init()
     self.refresh_mode = G_reader_settings:readSetting("forcerefresh_mode", "flashui")
     self.refresh_on_suspend = G_reader_settings:readSetting("forcerefresh_on_suspend", false)
     self.refresh_on_window_close = G_reader_settings:readSetting("forcerefresh_on_window_close", true)
+    self.refresh_on_edge_tap = G_reader_settings:readSetting("forcerefresh_on_edge_tap", true)
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
@@ -93,6 +94,16 @@ function ForceRefresh:addToMainMenu(menu_items)
                 callback = function()
                     self.refresh_on_window_close = not self.refresh_on_window_close
                     self:saveBookSetting("forcerefresh_on_window_close", self.refresh_on_window_close)
+                end,
+            },
+            {
+                text = _("Refresh on left/right edge tap"),
+                checked_func = function()
+                    return self.refresh_on_edge_tap
+                end,
+                callback = function()
+                    self.refresh_on_edge_tap = not self.refresh_on_edge_tap
+                    self:saveBookSetting("forcerefresh_on_edge_tap", self.refresh_on_edge_tap)
                 end,
             },
             {
@@ -372,6 +383,7 @@ function ForceRefresh:loadBookSettings()
     self.enabled = read_setting("forcerefresh_enabled", self.enabled)
     self.refresh_mode = read_setting("forcerefresh_mode", self.refresh_mode)
     self.refresh_on_window_close = read_setting("forcerefresh_on_window_close", self.refresh_on_window_close)
+    self.refresh_on_edge_tap = read_setting("forcerefresh_on_edge_tap", self.refresh_on_edge_tap)
     self.only_flash_on_page_with_images = read_setting("forcerefresh_only_images", self.only_flash_on_page_with_images)
     self.blank_page_color = read_setting("forcerefresh_blank_color", self.blank_page_color)
     self.show_blank_page = read_setting("forcerefresh_show_blank_page", self.show_blank_page)
@@ -488,16 +500,59 @@ function ForceRefresh:refreshPageAdditionalTimes()
     end
 end
 
+function ForceRefresh:registerEdgeTapZones()
+    if not Device:isTouchDevice() or not self.ui._zones then
+        return
+    end
+    self.edge_tap_handlers = {}
+    for _, zone_id in ipairs({ "tap_forward", "tap_backward" }) do
+        local zone = self.ui._zones[zone_id]
+        if zone and zone.handler then
+            local original_handler = zone.handler
+            local wrapped_handler = function(ges)
+                local page_before = self.ui:getCurrentPage()
+                local refresh_on_tap = self.enabled and self.refresh_on_edge_tap
+                if refresh_on_tap then
+                    self.edge_tap_active = true
+                end
+                local handled = original_handler(ges)
+                self.edge_tap_active = nil
+                local page_after = self.ui:getCurrentPage()
+                if refresh_on_tap and page_before == page_after then
+                    UIManager:setDirty(self.ui, "flashui")
+                    UIManager:forceRePaint()
+                    return true
+                end
+                return handled
+            end
+            zone.handler = wrapped_handler
+            self.edge_tap_handlers[zone_id] = {
+                zone = zone,
+                original_handler = original_handler,
+                wrapped_handler = wrapped_handler,
+            }
+        end
+    end
+end
+
 -- Register plugin to a page turn event
-function ForceRefresh:onPageUpdate(page_number)
-    if not self.reader_ready or page_number == self.last_page_number then
+function ForceRefresh:onPageUpdate(page_number, force_refresh)
+    if not self.reader_ready or (page_number == self.last_page_number and not force_refresh) then
         return false
     end
-    self.page_update_serial = (self.page_update_serial or 0) + 1
-    self.last_page_number = page_number
+    if page_number ~= self.last_page_number then
+        self.page_update_serial = (self.page_update_serial or 0) + 1
+        self.last_page_number = page_number
+    end
 
     if self.enabled then
-        if self.skip_chapter_start and self.ui.toc then
+        if self.edge_tap_active and self.refresh_on_edge_tap then
+            UIManager:setDirty(self.ui, "flashui")
+            UIManager:forceRePaint()
+            return false
+        end
+
+        if self.skip_chapter_start and not force_refresh and self.ui.toc then
             for _, chapter_page in ipairs(self.ui.toc:getTocTicksFlattened(true)) do
                 if chapter_page == page_number then
                     return false
@@ -560,10 +615,23 @@ function ForceRefresh:onReaderReady()
     self.last_page_number = self.ui:getCurrentPage()
     self.page_update_serial = 0
     self.reader_ready = true
+    UIManager:nextTick(function()
+        if self.reader_ready then
+            self:registerEdgeTapZones()
+        end
+    end)
 end
 
 -- Called when a document is closed
 function ForceRefresh:onCloseDocument()
+    if self.edge_tap_handlers then
+        for _, entry in pairs(self.edge_tap_handlers) do
+            if entry.zone.handler == entry.wrapped_handler then
+                entry.zone.handler = entry.original_handler
+            end
+        end
+        self.edge_tap_handlers = nil
+    end
     self:uninstallWindowCloseHook()
     self.reader_ready = false
     self.last_page_number = nil
