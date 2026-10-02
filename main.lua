@@ -23,7 +23,7 @@ function BlankRefreshWidget:paintTo(bb, x, y)
     end
     if self.has_images then
         local screen_size = Screen:getSize()
-        bb:paintRect(x, y, screen_size.w, screen_size.h, Blitbuffer.COLOR_WHITE)
+        bb:paintRect(x, y, screen_size.w, screen_size.h, self.background)
     else
         self.invisible = true
     end
@@ -43,6 +43,7 @@ function ForceRefresh:init()
     self.refresh_mode = G_reader_settings:readSetting("forcerefresh_mode", "flashui")
     self.refresh_on_suspend = G_reader_settings:readSetting("forcerefresh_on_suspend", false)
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
+    self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
 
     -- Add to main menu
     self.ui.menu:registerToMainMenu(self)
@@ -85,6 +86,31 @@ function ForceRefresh:addToMainMenu(menu_items)
                     G_reader_settings:saveSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
                     logger.info("ForceRefresh only on pages with images:", self.only_flash_on_page_with_images)
                 end,
+            },
+            {
+                text = _("Blank page color"),
+                sub_item_table = {
+                    {
+                        text = _("White"),
+                        checked_func = function()
+                            return self.blank_page_color == "white"
+                        end,
+                        callback = function()
+                            self.blank_page_color = "white"
+                            G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                        end,
+                    },
+                    {
+                        text = _("Black"),
+                        checked_func = function()
+                            return self.blank_page_color == "black"
+                        end,
+                        callback = function()
+                            self.blank_page_color = "black"
+                            G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                        end,
+                    },
+                },
             },
             {
                 text = _("Refresh mode"),
@@ -145,6 +171,7 @@ function ForceRefresh:onPageUpdate(page_number)
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
         local blank_page = BlankRefreshWidget:new {
+            background = self.blank_page_color == "black" and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_WHITE,
             document = self.ui.document,
             only_flash_on_page_with_images = self.only_flash_on_page_with_images,
         }
