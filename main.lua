@@ -23,8 +23,7 @@ function BlankRefreshWidget:paintTo(bb, x, y)
     end
     if self.has_images then
         local screen_size = Screen:getSize()
-        bb:paintRect(x, y, screen_size.w, screen_size.h, Blitbuffer.COLOR_BLACK)
-        UIManager:setDirty(nil, "flashui")
+        bb:paintRect(x, y, screen_size.w, screen_size.h, Blitbuffer.COLOR_WHITE)
     else
         self.invisible = true
     end
