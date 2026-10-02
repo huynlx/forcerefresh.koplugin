@@ -68,7 +68,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                 end,
                 callback = function()
                     self.enabled = not self.enabled
-                    G_reader_settings:saveSetting("forcerefresh_enabled", self.enabled)
+                    self:saveBookSetting("forcerefresh_enabled", self.enabled)
                     logger.info("ForceRefresh on page turn:", self.enabled)
                 end
             },
@@ -90,7 +90,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                 end,
                 callback = function()
                     self.only_flash_on_page_with_images = not self.only_flash_on_page_with_images
-                    G_reader_settings:saveSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
+                    self:saveBookSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
                     logger.info("ForceRefresh only on pages with images:", self.only_flash_on_page_with_images)
                 end,
             },
@@ -101,7 +101,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                 end,
                 callback = function()
                     self.show_blank_page = not self.show_blank_page
-                    G_reader_settings:saveSetting("forcerefresh_show_blank_page", self.show_blank_page)
+                    self:saveBookSetting("forcerefresh_show_blank_page", self.show_blank_page)
                 end,
             },
             {
@@ -114,7 +114,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_page_color = "white"
-                            G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                            self:saveBookSetting("forcerefresh_blank_color", self.blank_page_color)
                         end,
                     },
                     {
@@ -124,7 +124,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_page_color = "black"
-                            G_reader_settings:saveSetting("forcerefresh_blank_color", self.blank_page_color)
+                            self:saveBookSetting("forcerefresh_blank_color", self.blank_page_color)
                         end,
                     },
                 },
@@ -139,7 +139,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_mode = "full"
-                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                            self:saveBookSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
                         end,
                     },
                     {
@@ -149,7 +149,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_mode = "partial"
-                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                            self:saveBookSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
                         end,
                     },
                     {
@@ -159,7 +159,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_mode = "flashui"
-                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                            self:saveBookSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
                         end,
                     },
                     {
@@ -169,7 +169,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_mode = "flashpartial"
-                            G_reader_settings:saveSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
+                            self:saveBookSetting("forcerefresh_blank_mode", self.blank_refresh_mode)
                         end,
                     },
                 },
@@ -184,7 +184,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_count = 1
-                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                            self:saveBookSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                     {
@@ -194,7 +194,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_count = 2
-                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                            self:saveBookSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                     {
@@ -204,7 +204,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_count = 3
-                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                            self:saveBookSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                     {
@@ -214,7 +214,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_count = 4
-                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                            self:saveBookSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                     {
@@ -224,7 +224,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.blank_refresh_count = 5
-                            G_reader_settings:saveSetting("forcerefresh_blank_count", self.blank_refresh_count)
+                            self:saveBookSetting("forcerefresh_blank_count", self.blank_refresh_count)
                         end,
                     },
                 },
@@ -239,7 +239,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_count = 1
-                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                            self:saveBookSetting("forcerefresh_count", self.refresh_count)
                         end,
                     },
                     {
@@ -249,7 +249,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_count = 2
-                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                            self:saveBookSetting("forcerefresh_count", self.refresh_count)
                         end,
                     },
                     {
@@ -259,7 +259,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_count = 3
-                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                            self:saveBookSetting("forcerefresh_count", self.refresh_count)
                         end,
                     },
                     {
@@ -269,7 +269,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_count = 4
-                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                            self:saveBookSetting("forcerefresh_count", self.refresh_count)
                         end,
                     },
                     {
@@ -279,7 +279,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_count = 5
-                            G_reader_settings:saveSetting("forcerefresh_count", self.refresh_count)
+                            self:saveBookSetting("forcerefresh_count", self.refresh_count)
                         end,
                     },
                 },
@@ -294,7 +294,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_mode = "full"
-                            G_reader_settings:saveSetting("forcerefresh_mode", "full")
+                            self:saveBookSetting("forcerefresh_mode", "full")
                             logger.info("ForceRefresh mode set to: full")
                         end,
                     },
@@ -305,7 +305,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_mode = "partial"
-                            G_reader_settings:saveSetting("forcerefresh_mode", "partial")
+                            self:saveBookSetting("forcerefresh_mode", "partial")
                             logger.info("ForceRefresh mode set to: partial")
                         end,
                     },
@@ -316,7 +316,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_mode = "flashui"
-                            G_reader_settings:saveSetting("forcerefresh_mode", "flashui")
+                            self:saveBookSetting("forcerefresh_mode", "flashui")
                             logger.info("ForceRefresh mode set to: flashui")
                         end,
                     },
@@ -327,7 +327,7 @@ function ForceRefresh:addToMainMenu(menu_items)
                         end,
                         callback = function()
                             self.refresh_mode = "flashpartial"
-                            G_reader_settings:saveSetting("forcerefresh_mode", "flashpartial")
+                            self:saveBookSetting("forcerefresh_mode", "flashpartial")
                             logger.info("ForceRefresh mode set to: flashpartial")
                         end,
                     },
@@ -335,6 +335,32 @@ function ForceRefresh:addToMainMenu(menu_items)
             },
         }
     }
+end
+
+function ForceRefresh:loadBookSettings()
+    local settings = self.ui.doc_settings
+    local function read_setting(key, current_value)
+        local value = settings:readSetting(key)
+        if value ~= nil then
+            return value
+        end
+        return current_value
+    end
+
+    self.enabled = read_setting("forcerefresh_enabled", self.enabled)
+    self.refresh_mode = read_setting("forcerefresh_mode", self.refresh_mode)
+    self.only_flash_on_page_with_images = read_setting("forcerefresh_only_images", self.only_flash_on_page_with_images)
+    self.blank_page_color = read_setting("forcerefresh_blank_color", self.blank_page_color)
+    self.show_blank_page = read_setting("forcerefresh_show_blank_page", self.show_blank_page)
+    self.blank_refresh_mode = read_setting("forcerefresh_blank_mode", self.blank_refresh_mode)
+    self.refresh_count = math.max(1, math.min(5, math.floor(tonumber(
+        read_setting("forcerefresh_count", self.refresh_count)) or 1)))
+    self.blank_refresh_count = math.max(1, math.min(5, math.floor(tonumber(
+        read_setting("forcerefresh_blank_count", self.blank_refresh_count)) or 1)))
+end
+
+function ForceRefresh:saveBookSetting(key, value)
+    self.ui.doc_settings:saveSetting(key, value)
 end
 
 function ForceRefresh:refreshPageAdditionalTimes()
@@ -399,7 +425,7 @@ end
 
 -- Called when a document is opened
 function ForceRefresh:onReaderReady()
-    -- do something here
+    self:loadBookSettings()
 end
 
 -- Called when a document is closed
