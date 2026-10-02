@@ -385,6 +385,11 @@ end
 
 -- Register plugin to a page turn event
 function ForceRefresh:onPageUpdate(page_number)
+    if not self.reader_ready or page_number == self.last_page_number then
+        return false
+    end
+    self.last_page_number = page_number
+
     if self.enabled then
         if self.skip_chapter_start and self.ui.toc then
             for _, chapter_page in ipairs(self.ui.toc:getTocTicksFlattened(true)) do
@@ -446,11 +451,14 @@ end
 -- Called when a document is opened
 function ForceRefresh:onReaderReady()
     self:loadBookSettings()
+    self.last_page_number = self.ui:getCurrentPage()
+    self.reader_ready = true
 end
 
 -- Called when a document is closed
 function ForceRefresh:onCloseDocument()
-    -- do something here
+    self.reader_ready = false
+    self.last_page_number = nil
 end
 
 -- Called when device is about to suspend/sleep
