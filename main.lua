@@ -46,7 +46,7 @@ function ForceRefresh:init()
     self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
     self.blank_page_color = G_reader_settings:readSetting("forcerefresh_blank_color", "white")
     self.show_blank_page = G_reader_settings:readSetting("forcerefresh_show_blank_page", true)
-    self.skip_chapter_start = G_reader_settings:readSetting("forcerefresh_skip_chapter_start", false)
+    self.skip_chapter_start = G_reader_settings:readSetting("forcerefresh_skip_chapter_start", true)
     self.blank_refresh_mode = G_reader_settings:readSetting("forcerefresh_blank_mode", "flashui")
     local refresh_count = tonumber(G_reader_settings:readSetting("forcerefresh_count", 1)) or 1
     self.refresh_count = math.max(1, math.min(5, math.floor(refresh_count)))
