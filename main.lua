@@ -1,484 +1,165 @@
 local UIManager = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
-local Blitbuffer = require("ffi/blitbuffer")
-local Device = require("device")
 local logger = require("logger")
 local _ = require("gettext")
 
-local Screen = Device.screen
-
-
+-- Plugin main class
 local ForceRefresh = WidgetContainer:extend {
     name = "forcerefresh",
-    is_doc_only = true,
+    is_doc_only = true, -- Only runs when a document is open
 }
 
-
-----------------------------------------------------------------
--- INIT
-----------------------------------------------------------------
-
 function ForceRefresh:init()
-    logger.info("ForceRefresh: initialized")
+    logger.info("ForceRefresh plugin initialized.")
 
-    self.enabled =
-        G_reader_settings:readSetting(
-            "forcerefresh_enabled",
-            true
-        )
+    -- Load saved settings or use defaults
+    self.enabled = G_reader_settings:readSetting("forcerefresh_enabled", false)
+    self.refresh_mode = G_reader_settings:readSetting("forcerefresh_mode", "flashui")
+    self.refresh_on_suspend = G_reader_settings:readSetting("forcerefresh_on_suspend", false)
+    self.only_flash_on_page_with_images = G_reader_settings:readSetting("forcerefresh_only_images", false)
 
-    self.refresh_on_suspend =
-        G_reader_settings:readSetting(
-            "forcerefresh_on_suspend",
-            false
-        )
-
-    self.reader_ready = false
-    self.last_page_number = nil
-    self.refreshing = false
-
+    -- Add to main menu
     self.ui.menu:registerToMainMenu(self)
 end
 
-----------------------------------------------------------------
--- MENU
-----------------------------------------------------------------
-
 function ForceRefresh:addToMainMenu(menu_items)
     menu_items.force_refresh = {
-
         text = _("Force refresh"),
-
         sorting_hint = "tools",
-
         sub_item_table = {
-
-            ------------------------------------------------------
-            -- ENABLE / DISABLE
-            ------------------------------------------------------
-
             {
-                text = _("Enable forced page refresh"),
-
+                text = _("Enable forced refresh"),
                 checked_func = function()
                     return self.enabled
                 end,
-
                 callback = function()
                     self.enabled = not self.enabled
-
-                    G_reader_settings:saveSetting(
-                        "forcerefresh_enabled",
-                        self.enabled
-                    )
-
-                    logger.info(
-                        "ForceRefresh enabled:",
-                        self.enabled
-                    )
-                end,
+                    G_reader_settings:saveSetting("forcerefresh_enabled", self.enabled)
+                    logger.info("ForceRefresh on page turn:", self.enabled)
+                end
             },
-
-
-            ------------------------------------------------------
-            -- SUSPEND
-            ------------------------------------------------------
-
             {
                 text = _("Refresh on suspend/sleep"),
-
                 checked_func = function()
                     return self.refresh_on_suspend
                 end,
-
                 callback = function()
-                    self.refresh_on_suspend =
-                        not self.refresh_on_suspend
-
-                    G_reader_settings:saveSetting(
-                        "forcerefresh_on_suspend",
-                        self.refresh_on_suspend
-                    )
-
-                    logger.info(
-                        "ForceRefresh suspend:",
-                        self.refresh_on_suspend
-                    )
+                    self.refresh_on_suspend = not self.refresh_on_suspend
+                    G_reader_settings:saveSetting("forcerefresh_on_suspend", self.refresh_on_suspend)
+                    logger.info("ForceRefresh on suspend:", self.refresh_on_suspend)
                 end,
             },
-
-
-            ------------------------------------------------------
-            -- MANUAL FULL REFRESH
-            ------------------------------------------------------
-
             {
-                text = _("Full refresh now"),
-
+                text = _("Only flash on page with images"),
+                checked_func = function()
+                    return self.only_flash_on_page_with_images
+                end,
                 callback = function()
-                    self:fullRefresh()
+                    self.only_flash_on_page_with_images = not self.only_flash_on_page_with_images
+                    G_reader_settings:saveSetting("forcerefresh_only_images", self.only_flash_on_page_with_images)
+                    logger.info("ForceRefresh only on pages with images:", self.only_flash_on_page_with_images)
                 end,
             },
-
-        },
+            {
+                text = _("Refresh mode"),
+                sub_item_table = {
+                    {
+                        text = _("Full refresh (slowest, cleanest)"),
+                        checked_func = function()
+                            return self.refresh_mode == "full"
+                        end,
+                        callback = function()
+                            self.refresh_mode = "full"
+                            G_reader_settings:saveSetting("forcerefresh_mode", "full")
+                            logger.info("ForceRefresh mode set to: full")
+                        end,
+                    },
+                    {
+                        text = _("Partial refresh (faster, some ghosting)"),
+                        checked_func = function()
+                            return self.refresh_mode == "partial"
+                        end,
+                        callback = function()
+                            self.refresh_mode = "partial"
+                            G_reader_settings:saveSetting("forcerefresh_mode", "partial")
+                            logger.info("ForceRefresh mode set to: partial")
+                        end,
+                    },
+                    {
+                        text = _("Flash UI (balanced)"),
+                        checked_func = function()
+                            return self.refresh_mode == "flashui"
+                        end,
+                        callback = function()
+                            self.refresh_mode = "flashui"
+                            G_reader_settings:saveSetting("forcerefresh_mode", "flashui")
+                            logger.info("ForceRefresh mode set to: flashui")
+                        end,
+                    },
+                    {
+                        text = _("Flash partial (fast with quick flash)"),
+                        checked_func = function()
+                            return self.refresh_mode == "flashpartial"
+                        end,
+                        callback = function()
+                            self.refresh_mode = "flashpartial"
+                            G_reader_settings:saveSetting("forcerefresh_mode", "flashpartial")
+                            logger.info("ForceRefresh mode set to: flashpartial")
+                        end,
+                    },
+                },
+            },
+        }
     }
 end
 
-----------------------------------------------------------------
--- GET SCREEN SIZE
-----------------------------------------------------------------
-
-function ForceRefresh:getScreenSize()
-    local w = Screen:getWidth()
-    local h = Screen:getHeight()
-
-    return w, h
-end
-
-----------------------------------------------------------------
--- FULL REFRESH
-----------------------------------------------------------------
---
--- Dùng cho:
---   - menu "Full refresh now"
---   - suspend
---
--- Không liên quan trực tiếp tới page turn.
---
-----------------------------------------------------------------
-
-function ForceRefresh:fullRefresh()
-    if not Screen or not Screen.bb then
-        logger.warn(
-            "ForceRefresh: Screen.bb unavailable"
-        )
-        return
-    end
-
-
-    local w, h = self:getScreenSize()
-
-
-    logger.dbg(
-        "ForceRefresh: full refresh",
-        w,
-        h
-    )
-
-
-    Screen:refreshFull(
-        0,
-        0,
-        w,
-        h
-    )
-
-
-    if Screen.refreshWaitForLast then
-        Screen:refreshWaitForLast()
-    else
-        UIManager:waitForVSync()
-    end
-end
-
-----------------------------------------------------------------
--- CLEAR FRAMEBUFFER
-----------------------------------------------------------------
---
--- CỰC KỲ QUAN TRỌNG:
---
--- Hàm này CHỈ xóa framebuffer trong RAM.
---
--- Không gọi Screen:refreshFull().
---
--- Vì vậy màn E-Ink vẫn đang hiển thị PAGE A.
---
-----------------------------------------------------------------
-
-function ForceRefresh:clearFramebuffer()
-    if not Screen or not Screen.bb then
-        logger.warn(
-            "ForceRefresh: Screen.bb unavailable"
-        )
-        return false
-    end
-
-
-    logger.dbg(
-        "ForceRefresh: clearing framebuffer"
-    )
-
-
-    Screen.bb:fill(
-        Blitbuffer.COLOR_WHITE
-    )
-
-
-    return true
-end
-
-----------------------------------------------------------------
--- REFRESH CURRENT FRAMEBUFFER
-----------------------------------------------------------------
---
--- Sau khi ReaderUI đã render PAGE B vào framebuffer,
--- hàm này đưa framebuffer đó lên E-Ink.
---
--- Đây là lần refresh DUY NHẤT của page turn.
---
-----------------------------------------------------------------
-
-function ForceRefresh:refreshFramebuffer()
-    local w, h = self:getScreenSize()
-
-
-    logger.dbg(
-        "ForceRefresh: refreshing framebuffer"
-    )
-
-
-    -- Screen:refreshFull(
-    --     0,
-    --     0,
-    --     w,
-    --     h
-    -- )
-
-
-    if Screen.refreshWaitForLast then
-        Screen:refreshWaitForLast()
-    else
-        UIManager:waitForVSync()
-    end
-end
-
-----------------------------------------------------------------
--- PAGE UPDATE
-----------------------------------------------------------------
---
--- FLOW:
---
--- PAGE A
---   ↓
--- clear framebuffer
---   ↓
--- render PAGE B
---   ↓
--- full refresh
---   ↓
--- PAGE B
---
-----------------------------------------------------------------
-
+-- Register plugin to a page turn event
 function ForceRefresh:onPageUpdate(page_number)
-    ------------------------------------------------------------
-    -- Không có reader
-    ------------------------------------------------------------
+    if self.enabled then
+        logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
-    if not self.reader_ready then
-        return false
-    end
-
-
-    ------------------------------------------------------------
-    -- Không phải page mới
-    ------------------------------------------------------------
-
-    if page_number == self.last_page_number then
-        return false
-    end
-
-
-    self.last_page_number = page_number
-
-
-    ------------------------------------------------------------
-    -- Plugin disabled
-    ------------------------------------------------------------
-
-    if not self.enabled then
-        return false
-    end
-
-
-    ------------------------------------------------------------
-    -- Chống refresh chồng nhau
-    ------------------------------------------------------------
-
-    if self.refreshing then
-        logger.dbg(
-            "ForceRefresh: refresh already running"
+        -- force refresh the page again after some time
+        UIManager:scheduleIn(0.1, function()
+            local has_images = true
+            if self.only_flash_on_page_with_images then
+                local image_count = self.ui.document:getDrawnImagesStatistics()
+                has_images = image_count > 0
+            end
+            if has_images then
+                UIManager:setDirty(self.ui, self.refresh_mode)
+            end
+        end
         )
 
+        -- allow other handlers to handle this event
         return false
     end
-
-
-    self.refreshing = true
-
-
-    logger.dbg(
-        "ForceRefresh: page update:",
-        page_number
-    )
-
-
-    ------------------------------------------------------------
-    -- STEP 1
-    --
-    -- XÓA FRAMEBUFFER
-    --
-    -- E-Ink VẪN ĐANG HIỂN THỊ PAGE A.
-    --
-    ------------------------------------------------------------
-
-    if not self:clearFramebuffer() then
-        self.refreshing = false
-
-        return false
-    end
-
-
-    ------------------------------------------------------------
-    -- STEP 2
-    --
-    -- Đánh dấu ReaderUI dirty.
-    --
-    -- KOReader sẽ render PAGE B vào framebuffer
-    -- hiện tại đang là màu trắng.
-    --
-    ------------------------------------------------------------
-
-    UIManager:setDirty(
-        self.ui,
-        "full"
-    )
-
-
-    ------------------------------------------------------------
-    -- STEP 3
-    --
-    -- Force repaint để PAGE B được vẽ vào framebuffer.
-    --
-    -- CHƯA refresh E-Ink ở đây.
-    --
-    ------------------------------------------------------------
-
-    UIManager:forceRePaint()
-
-
-    ------------------------------------------------------------
-    -- STEP 4
-    --
-    -- Chờ UIManager hoàn thành vòng event/repaint hiện tại.
-    --
-    -- Sau đó framebuffer phải chứa PAGE B.
-    --
-    ------------------------------------------------------------
-
-    UIManager:scheduleIn(
-        0,
-        function()
-            ----------------------------------------------------
-            -- Kiểm tra plugin/document còn tồn tại
-            ----------------------------------------------------
-
-            if not self.ui
-                or not self.ui.document
-                or not self.reader_ready then
-                self.refreshing = false
-
-                return
-            end
-
-
-            ----------------------------------------------------
-            -- STEP 5
-            --
-            -- FRAMEBUFFER hiện tại:
-            --
-            --     PAGE B
-            --
-            -- Đưa nó lên E-Ink bằng FULL refresh.
-            --
-            -- Đây là refresh vật lý DUY NHẤT.
-            --
-            ----------------------------------------------------
-
-            self:refreshFramebuffer()
-
-
-            ----------------------------------------------------
-            -- DONE
-            ----------------------------------------------------
-
-            self.refreshing = false
-
-
-            logger.dbg(
-                "ForceRefresh: page",
-                page_number,
-                "fully refreshed"
-            )
-        end
-    )
-
-
-    ------------------------------------------------------------
-    -- Cho các page-turn handler khác tiếp tục.
-    ------------------------------------------------------------
-
-    return false
 end
 
-----------------------------------------------------------------
--- READER READY
-----------------------------------------------------------------
-
+-- Called when a document is opened
 function ForceRefresh:onReaderReady()
-    self.reader_ready = true
-
-    self.last_page_number =
-        self.ui:getCurrentPage()
-
-
-    logger.dbg(
-        "ForceRefresh: reader ready, page:",
-        self.last_page_number
-    )
+    -- do something here
 end
 
-----------------------------------------------------------------
--- CLOSE DOCUMENT
-----------------------------------------------------------------
-
+-- Called when a document is closed
 function ForceRefresh:onCloseDocument()
-    self.reader_ready = false
-
-    self.last_page_number = nil
-
-    self.refreshing = false
+    -- do something here
 end
 
-----------------------------------------------------------------
--- SUSPEND / SLEEP
-----------------------------------------------------------------
-
+-- Called when device is about to suspend/sleep
 function ForceRefresh:onSuspend()
-    if not self.refresh_on_suspend then
+    if self.refresh_on_suspend then
+        logger.dbg("ForceRefresh: Refreshing screen before suspend with mode:", self.refresh_mode)
+
+        -- force refresh the screen after some time
+        UIManager:scheduleIn(0.1, function()
+            UIManager:setDirty(self.ui, self.refresh_mode)
+        end
+        )
+
+        -- allow other handlers to handle this event
         return false
     end
-
-
-    logger.dbg(
-        "ForceRefresh: refreshing before suspend"
-    )
-
-
-    self:fullRefresh()
-
-
-    return false
 end
 
 return ForceRefresh
