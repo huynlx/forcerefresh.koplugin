@@ -400,8 +400,8 @@ function ForceRefresh:installWindowCloseHook()
             if widget and manager:isWidgetShown(widget) and widget.name ~= "forcerefresh_blank" then
                 for plugin in pairs(state.listeners) do
                     if plugin.refresh_on_window_close
-                            and widget ~= plugin.ui
-                            and manager:isWidgetShown(plugin.ui) then
+                        and widget ~= plugin.ui
+                        and manager:isWidgetShown(plugin.ui) then
                         table.insert(refresh_listeners, plugin)
                     end
                 end
@@ -410,9 +410,9 @@ function ForceRefresh:installWindowCloseHook()
             for _, plugin in ipairs(refresh_listeners) do
                 manager:nextTick(function()
                     if state.listeners[plugin]
-                            and plugin.refresh_on_window_close
-                            and manager:isWidgetShown(plugin.ui) then
-                        manager:setDirty(plugin.ui, plugin.refresh_mode)
+                        and plugin.refresh_on_window_close
+                        and manager:isWidgetShown(plugin.ui) then
+                        manager:setDirty(plugin.ui, "flashui")
                     end
                 end)
             end
