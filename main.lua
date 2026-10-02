@@ -140,6 +140,11 @@ end
 
 -- Register plugin to a page turn event
 function ForceRefresh:onPageUpdate(page_number)
+    if not self.reader_ready or page_number == self.last_page_number then
+        return false
+    end
+    self.last_page_number = page_number
+
     if self.enabled then
         logger.dbg("ForceRefresh: page:", page_number, "mode:", self.refresh_mode)
 
@@ -166,7 +171,8 @@ end
 
 -- Called when a document is opened
 function ForceRefresh:onReaderReady()
-    -- do something here
+    self.reader_ready = true
+    self.last_page_number = self.ui:getCurrentPage()
 end
 
 -- Called when a document is closed
